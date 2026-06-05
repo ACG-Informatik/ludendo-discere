@@ -1,0 +1,19 @@
+{
+  "name": "Ludendo Discere",
+  "short_name": "Ludendo",
+  "description": "Lateinvokabeln spielend lernen",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#ede8df",
+  "theme_color": "#1a2744",
+  "lang": "de",
+  "icons": [
+    {
+      "src": "img-vincere.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

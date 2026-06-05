@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Ludendo Discere – Lateinvokabeln</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#1a2744" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Ludendo" />
+  <link rel="apple-touch-icon" href="img-vincere.png" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" media="print" onload="this.media='all'" />
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Lora:ital,wght@0,400;0,500;1,400&display=swap" /></noscript>
+</head>
+<body>
+
+  <!-- STARTSEITE -->
+  <div id="screen-home" class="screen active">
+    <img src="Tempel.png" class="home-deco home-deco-tempel" alt="" />
+    <img src="Statue.png" class="home-deco home-deco-statue" alt="" />
+    <div class="home-wrap">
+
+      <div class="home-hero">
+        <div class="home-emblem">&#127963;</div>
+        <h1 class="home-title">Ludendo Discere</h1>
+        <div class="home-divider"><span></span><span class="home-divider-gem">&#10022;</span><span></span></div>
+        <p class="home-subtitle">spielend lernen</p>
+      </div>
+
+      <div class="home-card">
+        <div class="form-group" id="group-class">
+          <label class="field-label" for="class-select">Klasse <span class="optional">(optional)</span></label>
+          <select id="class-select" class="input"></select>
+        </div>
+        <div class="form-group" id="group-lesson">
+          <label class="field-label" for="lesson-select">Lektion <span class="optional">(optional)</span></label>
+          <select id="lesson-select" class="input"></select>
+        </div>
+        <div class="form-group" id="group-student-name">
+          <label class="field-label" for="student-name">Dein Name, Discipulus</label>
+          <input type="text" id="student-name" class="input" placeholder="Titus..." maxlength="40" />
+        </div>
+        <div class="form-group" id="group-student-select" style="display:none">
+          <label class="field-label" for="student-select">Dein Name</label>
+          <select id="student-select" class="input"></select>
+        </div>
+        <button class="btn btn-home-primary" id="btn-start">Übung beginnen</button>
+        <button class="btn btn-home-ghost" id="btn-profile" style="display:none">Mein Profil ansehen</button>
+        <button class="btn btn-home-ghost" id="btn-goto-admin">Magister-Bereich</button>
+      </div>
+
+      <div class="home-features">
+        <div class="home-feature">
+          <img src="img-discere.png" class="feature-img" alt="" />
+          <span class="feature-latin">discere</span>
+          <span class="feature-german">lernen</span>
+        </div>
+        <div class="home-feature-sep">·</div>
+        <div class="home-feature">
+          <img src="img-intellegere.png" class="feature-img" alt="" />
+          <span class="feature-latin">intellegere</span>
+          <span class="feature-german">verstehen</span>
+        </div>
+        <div class="home-feature-sep">·</div>
+        <div class="home-feature">
+          <img src="img-vincere.png" class="feature-img" alt="" />
+          <span class="feature-latin">vincere</span>
+          <span class="feature-german">Erfolg haben</span>
+        </div>
+      </div>
+
+      <div class="xp-bar-section">
+        <div class="xp-level" id="xp-level">I</div>
+        <span class="xp-label" id="xp-title">Tiro</span>
+        <div class="xp-track">
+          <div class="xp-fill" id="xp-fill" style="width:0%"></div>
+        </div>
+        <span class="xp-points" id="xp-points">0 XP</span>
+        <div class="xp-shield">&#127937;</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- QUIZ -->
+  <div id="screen-quiz" class="screen">
+    <div class="quiz-header">
+      <button class="btn-back" id="btn-quiz-back">&#8592; Zurück</button>
+      <span id="quiz-player-name" class="quiz-player"></span>
+      <span id="quiz-progress" class="quiz-progress-label"></span>
+    </div>
+
+    <div class="quiz-body">
+      <div id="format-typing" class="format-panel">
+        <div class="format-badge">Eintippen</div>
+        <div class="question-word" id="typing-question"></div>
+        <p class="question-hint" id="typing-hint"></p>
+        <div class="meaning-progress" id="meaning-progress"></div>
+        <input type="text" id="typing-answer" class="input input-large" placeholder="Antwort eingeben..." />
+        <button class="btn btn-primary" id="typing-submit">Prüfen</button>
+        <div class="feedback" id="typing-feedback"></div>
+      </div>
+
+      <div id="format-multiple" class="format-panel">
+        <div class="format-badge">Ankreuzen</div>
+        <div class="question-word" id="multiple-question"></div>
+        <p class="question-hint">Welche Übersetzung ist richtig?</p>
+        <div class="choice-grid" id="multiple-choices"></div>
+        <div class="feedback" id="multiple-feedback"></div>
+      </div>
+
+      <div id="format-matching" class="format-panel">
+        <div class="format-badge">Zuordnung</div>
+        <p class="question-hint">Ordne die lateinischen Wörter den deutschen Bedeutungen zu.</p>
+        <div class="matching-area">
+          <div class="matching-col" id="matching-left"></div>
+          <div class="matching-col" id="matching-right"></div>
+        </div>
+        <button class="btn btn-primary" id="matching-submit">Auswertung</button>
+        <div class="feedback" id="matching-feedback"></div>
+      </div>
+
+      <button class="btn btn-secondary" id="btn-next" style="display:none;">Weiter &#8594;</button>
+    </div>
+
+    <div id="screen-result" class="result-overlay" style="display:none;">
+      <div class="result-card">
+        <div class="result-icon" id="result-icon">&#127942;</div>
+        <h2 class="result-title">Übung abgeschlossen!</h2>
+        <p class="result-score" id="result-score"></p>
+        <div class="result-bar-wrap">
+          <div class="result-bar" id="result-bar"></div>
+        </div>
+        <p class="result-msg" id="result-msg"></p>
+        <div class="result-xp" id="result-xp"></div>
+        <div class="result-actions">
+          <button class="btn btn-primary" id="btn-restart">Nochmal üben</button>
+          <button class="btn btn-ghost" id="btn-home">Zur Startseite</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN LOGIN -->
+  <div id="screen-admin-login" class="screen">
+    <div class="card center-card">
+      <button class="btn-back" id="btn-admin-back">&#8592; Zurück</button>
+      <div class="logo-icon">&#9775;</div>
+      <h1 class="title">Magister-Bereich</h1>
+      <p class="subtitle">Bitte melde dich an</p>
+      <div class="form-group">
+        <label class="field-label" for="admin-username">Benutzername</label>
+        <input type="text" id="admin-username" class="input" placeholder="Benutzername..." autocomplete="username" />
+      </div>
+      <div class="form-group">
+        <label class="field-label" for="admin-password">Passwort</label>
+        <input type="password" id="admin-password" class="input" placeholder="Passwort..." autocomplete="current-password" />
+      </div>
+      <div class="error-msg" id="admin-error"></div>
+      <button class="btn btn-primary" id="btn-admin-login">Anmelden</button>
+    </div>
+  </div>
+
+  <!-- ADMIN DASHBOARD -->
+  <div id="screen-admin" class="screen">
+    <div class="admin-layout">
+      <aside class="admin-sidebar">
+        <div class="sidebar-logo">
+          <span class="logo-icon small">&#9783;</span>
+          <span class="sidebar-title">Magister</span>
+        </div>
+        <nav class="sidebar-nav">
+          <button class="nav-item active" data-tab="vocab">Vokabeln</button>
+          <button class="nav-item" data-tab="classes">Klassen</button>
+          <button class="nav-item" data-tab="results">Ergebnisse</button>
+          <button class="nav-item" data-tab="stats">Statistiken</button>
+        </nav>
+        <button class="btn btn-ghost sidebar-logout" id="btn-logout">Abmelden</button>
+      </aside>
+
+      <main class="admin-main">
+
+        <!-- Tab: Vokabeln -->
+        <div id="tab-vocab" class="tab-panel active">
+          <div class="admin-header">
+            <h2 class="admin-title">Vokabeln verwalten</h2>
+          </div>
+
+          <!-- Lektionen verwalten -->
+          <div class="card">
+            <h3 class="section-title collapsible-toggle" onclick="toggleLessonsPanel()">
+              Lektionen verwalten <span id="lessons-toggle-icon" class="toggle-icon">▾</span>
+            </h3>
+            <div id="lessons-panel">
+              <div class="lessons-form-row">
+                <div class="form-group" style="flex:1">
+                  <label class="field-label" for="new-lesson-name">Neue Lektion</label>
+                  <input type="text" id="new-lesson-name" class="input" placeholder="z. B. Lektion 1 – Familie" maxlength="80" />
+                </div>
+                <button class="btn btn-primary btn-sm" id="btn-add-lesson" style="align-self:flex-end">Anlegen</button>
+              </div>
+              <div class="error-msg" id="lesson-error"></div>
+              <div id="lesson-list" style="margin-top:.8rem"></div>
+            </div>
+          </div>
+
+          <!-- Neue Vokabel -->
+          <div class="vocab-form card">
+            <h3 class="section-title">Neue Vokabel hinzufügen</h3>
+            <div class="form-row form-row-2">
+              <div class="form-group">
+                <label class="field-label" for="new-latin">Lateinisch</label>
+                <input type="text" id="new-latin" class="input" placeholder="z. B. via" />
+              </div>
+              <div class="form-group">
+                <label class="field-label" for="new-m1">Bedeutung 1 <span class="required">*</span></label>
+                <input type="text" id="new-m1" class="input" placeholder="z. B. der Weg" />
+              </div>
+              <div class="form-group">
+                <label class="field-label" for="new-m2">Bedeutung 2 <span class="optional">(optional)</span></label>
+                <input type="text" id="new-m2" class="input" placeholder="z. B. die Straße" />
+              </div>
+              <div class="form-group">
+                <label class="field-label" for="new-m3">Bedeutung 3 <span class="optional">(optional)</span></label>
+                <input type="text" id="new-m3" class="input" placeholder="z. B. die Route" />
+              </div>
+            </div>
+            <div class="form-group" style="max-width:320px">
+              <label class="field-label" for="new-vocab-lesson">Lektion <span class="optional">(optional)</span></label>
+              <select id="new-vocab-lesson" class="input"></select>
+            </div>
+            <button class="btn btn-primary" id="btn-add-vocab">Hinzufügen</button>
+            <div class="error-msg" id="vocab-error"></div>
+          </div>
+
+          <!-- CSV Upload -->
+          <div class="card">
+            <h3 class="section-title">Liste hochladen (CSV)</h3>
+            <p class="upload-hint">Format: <code>Lateinisch;Bedeutung1;Bedeutung2;Bedeutung3;LektionsName</code> — Spalten ab 2 sind optional.</p>
+            <div class="upload-area" id="upload-area">
+              <div class="upload-icon">&#128196;</div>
+              <p class="upload-label">CSV-Datei hier ablegen oder klicken</p>
+              <input type="file" id="csv-file" accept=".csv,.txt" style="display:none" />
+            </div>
+            <div id="upload-preview" class="upload-preview" style="display:none">
+              <p class="upload-preview-title" id="upload-preview-title"></p>
+              <div id="upload-preview-list" class="upload-preview-list"></div>
+              <div class="upload-actions">
+                <button class="btn btn-primary" id="btn-import-confirm">Alle importieren</button>
+                <button class="btn btn-ghost" id="btn-import-cancel">Abbrechen</button>
+              </div>
+            </div>
+            <div class="error-msg" id="upload-error"></div>
+          </div>
+
+          <!-- Vokabelliste -->
+          <div class="card">
+            <div class="admin-header">
+              <h3 class="section-title">Alle Vokabeln <span class="badge" id="vocab-count">0</span></h3>
+              <button class="btn btn-ghost" id="btn-clear-vocab" style="color:var(--error);border-color:var(--error)">Alle löschen</button>
+            </div>
+            <div id="vocab-list" class="vocab-table-wrap"></div>
+          </div>
+        </div>
+
+        <!-- Tab: Klassen -->
+        <div id="tab-classes" class="tab-panel">
+          <div class="admin-header">
+            <h2 class="admin-title">Klassen &amp; Schüler</h2>
+          </div>
+          <div class="vocab-form card">
+            <h3 class="section-title">Neue Klasse anlegen</h3>
+            <div class="form-group" style="max-width:320px">
+              <label class="field-label" for="new-class-name">Klassenname</label>
+              <input type="text" id="new-class-name" class="input" placeholder="z. B. Klasse 7a" maxlength="60" />
+            </div>
+            <button class="btn btn-primary" id="btn-add-class">Klasse anlegen</button>
+            <div class="error-msg" id="class-error"></div>
+          </div>
+          <div class="card">
+            <h3 class="section-title">Alle Klassen <span class="badge" id="class-count">0</span></h3>
+            <div id="class-list" class="vocab-table-wrap"></div>
+          </div>
+        </div>
+
+        <!-- Tab: Ergebnisse -->
+        <div id="tab-results" class="tab-panel">
+          <div class="admin-header">
+            <h2 class="admin-title">Schüler-Ergebnisse</h2>
+            <div class="filter-row">
+              <div class="form-group" style="min-width:160px;margin:0">
+                <label class="field-label" for="filter-class">Klasse</label>
+                <select id="filter-class" class="input input-sm"></select>
+              </div>
+              <div class="form-group" style="min-width:160px;margin:0">
+                <label class="field-label" for="filter-lesson">Lektion</label>
+                <select id="filter-lesson" class="input input-sm"></select>
+              </div>
+              <button class="btn btn-ghost" id="btn-clear-results">Alle löschen</button>
+            </div>
+          </div>
+          <div class="card">
+            <div id="results-list" class="results-table-wrap"></div>
+          </div>
+        </div>
+
+        <!-- Tab: Statistiken -->
+        <div id="tab-stats" class="tab-panel">
+          <div class="admin-header">
+            <h2 class="admin-title">Statistiken</h2>
+          </div>
+          <div id="stats-by-student-level"></div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- PROFIL -->
+  <div id="screen-profile" class="screen">
+    <div class="profile-wrap">
+      <button class="btn-back" id="btn-profile-back">&#8592; Zurück</button>
+
+      <div class="profile-header card">
+        <div class="profile-badge" id="profile-badge">I</div>
+        <div class="profile-info">
+          <h2 class="profile-name" id="profile-name"></h2>
+          <p class="profile-rank" id="profile-rank">Tiro</p>
+          <p class="profile-xp" id="profile-xp-total">0 XP gesamt</p>
+        </div>
+      </div>
+
+      <h3 class="profile-section-title">Fortschritt je Lektion</h3>
+      <div id="profile-lessons"></div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", () =>
+        navigator.serviceWorker.register("./sw.js")
+      );
+    }
+  </script>
+</body>
+</html>

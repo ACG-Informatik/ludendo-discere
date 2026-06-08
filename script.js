@@ -10,6 +10,7 @@ const STORAGE_RESULTS  = "ll_results";
 const STORAGE_CLASSES  = "ll_classes";
 const STORAGE_STUDENTS = "ll_students";
 const STORAGE_LESSONS  = "ll_lessons";
+const STORAGE_LEVELS   = "ll_levels";
 
 // ──────────────────────────────────────────────
 // DATENVERWALTUNG
@@ -23,8 +24,10 @@ function loadClasses()  { try { return JSON.parse(localStorage.getItem(STORAGE_C
 function saveClasses(l) { localStorage.setItem(STORAGE_CLASSES,  JSON.stringify(l)); }
 function loadStudents() { try { return JSON.parse(localStorage.getItem(STORAGE_STUDENTS)) || []; } catch { return []; } }
 function saveStudents(l){ localStorage.setItem(STORAGE_STUDENTS, JSON.stringify(l)); }
-function loadLessons()  { try { return JSON.parse(localStorage.getItem(STORAGE_LESSONS))  || []; } catch { return []; } }
-function saveLessons(l) { localStorage.setItem(STORAGE_LESSONS,  JSON.stringify(l)); }
+function loadLessons()       { try { return JSON.parse(localStorage.getItem(STORAGE_LESSONS))  || []; } catch { return []; } }
+function saveLessons(l)      { localStorage.setItem(STORAGE_LESSONS,  JSON.stringify(l)); }
+function loadLevelSnapshots(){ try { return JSON.parse(localStorage.getItem(STORAGE_LEVELS))   || {}; } catch { return {}; } }
+function saveLevelSnapshots(d){ localStorage.setItem(STORAGE_LEVELS,  JSON.stringify(d)); }
 
 // Eindeutige Ganzzahl-IDs (Float-IDs verlieren bei großen Timestamps Nachkommastellen)
 let _idSeq = 0;
@@ -142,21 +145,22 @@ function seedIfEmpty() {
 const XP_CORRECT = 10;
 const XP_ATTEMPT = 1;
 
-// Schwellen skalieren mit der Vokabelanzahl:
-// Magister = alle Vokabeln 3× richtig (n × 3 × XP_CORRECT)
-// Die anderen Stufen sind proportionale Meilensteine auf dem Weg dorthin.
+// Gesamt-Level: feste Schwellen, unabhängig von Vokabelanzahl.
+// Bei ~3 Übungen/Woche à 15 Vokabeln: Level VI nach ~1 Monat, Level XII nach >2 Schuljahren.
 function getXPLevels() {
-  const n = Math.max(loadVocab().length, 1);
-  const c = XP_CORRECT;
   return [
-    { min: 0,                        roman: "I",    title: "Tiro"        }, // Start
-    { min: Math.round(n * 0.12 * c), roman: "II",   title: "Discipulus"  }, // ~12% einmal richtig
-    { min: Math.round(n * 0.36 * c), roman: "III",  title: "Studiosus"   }, // ~36% einmal richtig
-    { min: Math.round(n * 0.72 * c), roman: "IV",   title: "Litteratus"  }, // ~alle einmal richtig
-    { min: Math.round(n * 1.20 * c), roman: "V",    title: "Grammaticus" }, // alle 1×, 20% 2×
-    { min: Math.round(n * 1.80 * c), roman: "VI",   title: "Rhetor"      }, // alle 1×, 80% 2×
-    { min: Math.round(n * 2.50 * c), roman: "VII",  title: "Doctus"      }, // alle 2×, 50% 3×
-    { min: n * 3 * c,                roman: "VIII", title: "Magister"    }, // alle 3× richtig ✓
+    { min: 0,      roman: "I",    title: "Tiro"        },
+    { min: 150,    roman: "II",   title: "Discipulus"  },
+    { min: 500,    roman: "III",  title: "Studiosus"   },
+    { min: 1100,   roman: "IV",   title: "Litteratus"  },
+    { min: 2200,   roman: "V",    title: "Grammaticus" },
+    { min: 4000,   roman: "VI",   title: "Rhetor"      },
+    { min: 7000,   roman: "VII",  title: "Orator"      },
+    { min: 11500,  roman: "VIII", title: "Philosophus" },
+    { min: 18000,  roman: "IX",   title: "Doctus"      },
+    { min: 27000,  roman: "X",    title: "Senator"     },
+    { min: 38000,  roman: "XI",   title: "Consul"      },
+    { min: 52000,  roman: "XII",  title: "Magister"    },
   ];
 }
 
@@ -174,25 +178,26 @@ function getCurrentLevel(xp, levels) {
   return level;
 }
 
-// XP und Level-Schwellen für eine einzelne Lektion
+// XP für eine einzelne Lektion
 function getStudentXPForLesson(studentName, lessonId) {
   return loadResults()
     .filter(r => r.studentName === studentName && r.lessonId === lessonId)
     .reduce((xp, r) => xp + (r.correct ? XP_CORRECT : XP_ATTEMPT), 0);
 }
 
+// Lektions-Level: skaliert mit Lektionsvokabeln; Magister = alle 5× richtig (schwerer als zuvor)
 function getLessonXPLevels(lessonId) {
   const n = Math.max(loadVocab().filter(v => v.lessonId === lessonId).length, 1);
   const c = XP_CORRECT;
   return [
     { min: 0,                        roman: "I",    title: "Tiro"        },
-    { min: Math.round(n * 0.12 * c), roman: "II",   title: "Discipulus"  },
-    { min: Math.round(n * 0.36 * c), roman: "III",  title: "Studiosus"   },
-    { min: Math.round(n * 0.72 * c), roman: "IV",   title: "Litteratus"  },
-    { min: Math.round(n * 1.20 * c), roman: "V",    title: "Grammaticus" },
-    { min: Math.round(n * 1.80 * c), roman: "VI",   title: "Rhetor"      },
-    { min: Math.round(n * 2.50 * c), roman: "VII",  title: "Doctus"      },
-    { min: n * 3 * c,                roman: "VIII", title: "Magister"    },
+    { min: Math.round(n * 0.15 * c), roman: "II",   title: "Discipulus"  },
+    { min: Math.round(n * 0.40 * c), roman: "III",  title: "Studiosus"   },
+    { min: Math.round(n * 0.80 * c), roman: "IV",   title: "Litteratus"  },
+    { min: n * c,                    roman: "V",    title: "Grammaticus" },
+    { min: Math.round(n * 2.0 * c),  roman: "VI",   title: "Rhetor"      },
+    { min: Math.round(n * 3.5 * c),  roman: "VII",  title: "Doctus"      },
+    { min: n * 5 * c,                roman: "VIII", title: "Magister"    },
   ];
 }
 
@@ -224,7 +229,7 @@ function renderProfile(studentName) {
       ? Math.min(100, Math.round((xp - level.min) / (nextLvl.min - level.min) * 100))
       : 100;
     const vocabN   = loadVocab().filter(v => v.lessonId === l.id).length;
-    const goal     = vocabN * 3 * XP_CORRECT;
+    const goal     = vocabN * 5 * XP_CORRECT;
     const isMagister = level.title === "Magister";
 
     html += `
@@ -258,6 +263,62 @@ function updateXPBar(name) {
   document.getElementById("xp-points").textContent = xp + " XP";
   document.getElementById("xp-level").textContent  = level.roman;
   document.getElementById("xp-title").textContent  = level.title;
+}
+
+// ──────────────────────────────────────────────
+// LEVEL-UP-BENACHRICHTIGUNG
+// ──────────────────────────────────────────────
+
+let _levelUpQueue = [];
+
+// Prüft ob sich Gesamt- oder Lektionslevel verbessert hat, speichert den Stand
+// und gibt eine Liste der neuen Level zurück.
+function checkLevelUps(studentName, lessonId) {
+  const stored = loadLevelSnapshots();
+  if (!stored[studentName]) stored[studentName] = { overall: null, lessons: {} };
+  const snap     = stored[studentName];
+  const levelUps = [];
+
+  // Gesamtlevel
+  const overallLvls  = getXPLevels();
+  const overallXP    = getStudentXP(studentName);
+  const overallLevel = getCurrentLevel(overallXP, overallLvls);
+  const prevOIdx     = snap.overall ? overallLvls.findIndex(l => l.title === snap.overall) : -1;
+  const currOIdx     = overallLvls.findIndex(l => l.title === overallLevel.title);
+  if (currOIdx > prevOIdx) {
+    levelUps.push({ roman: overallLevel.roman, title: overallLevel.title, subtitle: "Dein Gesamtniveau ist gestiegen!" });
+  }
+  snap.overall = overallLevel.title;
+
+  // Lektionslevel
+  if (lessonId) {
+    const lessonLvls  = getLessonXPLevels(lessonId);
+    const lessonXP    = getStudentXPForLesson(studentName, lessonId);
+    const lessonLevel = getCurrentLevel(lessonXP, lessonLvls);
+    const prevLIdx    = snap.lessons[lessonId] ? lessonLvls.findIndex(l => l.title === snap.lessons[lessonId]) : -1;
+    const currLIdx    = lessonLvls.findIndex(l => l.title === lessonLevel.title);
+    if (currLIdx > prevLIdx) {
+      const les = loadLessons().find(l => l.id === lessonId);
+      levelUps.push({ roman: lessonLevel.roman, title: lessonLevel.title, subtitle: les ? `Lektion: ${les.name}` : "Neues Lektionslevel" });
+    }
+    snap.lessons[lessonId] = lessonLevel.title;
+  }
+
+  stored[studentName] = snap;
+  saveLevelSnapshots(stored);
+  return levelUps;
+}
+
+function showNextLevelUp() {
+  if (!_levelUpQueue.length) {
+    document.getElementById("screen-result").style.display = "flex";
+    return;
+  }
+  const { roman, title, subtitle } = _levelUpQueue.shift();
+  document.getElementById("lu-roman").textContent = roman;
+  document.getElementById("lu-title").textContent = title;
+  document.getElementById("lu-sub").textContent   = subtitle;
+  document.getElementById("level-up-overlay").style.display = "flex";
 }
 
 // ──────────────────────────────────────────────
@@ -578,10 +639,10 @@ function submitMatching() {
 
 // Ergebnis-Bildschirm
 function showResult() {
-  const s = quizState;
+  const s   = quizState;
   const pct = s.total > 0 ? Math.round(s.correct / s.total * 100) : 0;
   document.getElementById("result-score").textContent = `${s.correct} / ${s.total} richtig`;
-  document.getElementById("result-bar").style.width = pct + "%";
+  document.getElementById("result-bar").style.width   = pct + "%";
   let icon="🏆", msg="Ausgezeichnet! Wahrhaft ein würdiger Römer!";
   if (pct < 40)      { icon="📜"; msg="Noch viel zu lernen — aber der Weg ist das Ziel!"; }
   else if (pct < 70) { icon="⚔️"; msg="Solide Leistung! Übe weiter, Discipulus!"; }
@@ -589,18 +650,24 @@ function showResult() {
   document.getElementById("result-icon").textContent = icon;
   document.getElementById("result-msg").textContent  = msg;
 
-  // XP-Gewinn + Titel anzeigen
-  const xpBefore = getStudentXP(s.playerName) - (s.correct * XP_CORRECT + (s.total - s.correct) * XP_ATTEMPT);
-  const xpAfter  = getStudentXP(s.playerName);
-  const gained   = xpAfter - Math.max(xpBefore, 0);
-  const titleBefore = getCurrentLevel(Math.max(xpBefore, 0)).title;
-  const titleAfter  = getCurrentLevel(xpAfter).title;
-  const levelUp = titleAfter !== titleBefore;
-  document.getElementById("result-xp").innerHTML = levelUp
-    ? `+${gained} XP &nbsp;·&nbsp; ⬆ Neuer Titel: <em>${titleAfter}</em>`
-    : `+${gained} XP &nbsp;·&nbsp; Rang: <em>${titleAfter}</em>`;
+  const xpGained = s.correct * XP_CORRECT + (s.total - s.correct) * XP_ATTEMPT;
+  const xpNow    = getStudentXP(s.playerName);
+  const lvlNow   = getCurrentLevel(xpNow, getXPLevels());
+  document.getElementById("result-xp").innerHTML =
+    `+${xpGained} XP &nbsp;·&nbsp; Gesamt: <em>${lvlNow.roman} ${lvlNow.title}</em>`;
 
-  document.getElementById("screen-result").style.display = "flex";
+  // Level-Up prüfen, Ergebnis speichern und ggf. Benachrichtigung zeigen
+  const levelUps = checkLevelUps(s.playerName, s.lessonId);
+  _levelUpQueue  = [...levelUps];
+  document.getElementById("level-up-overlay").style.display = "none";
+
+  if (_levelUpQueue.length) {
+    showNextLevelUp(); // Level-Up zuerst; danach öffnet showNextLevelUp das Ergebnis
+  } else {
+    document.getElementById("screen-result").style.display = "flex";
+  }
+
+  updateXPBar(s.playerName);
 }
 
 // ──────────────────────────────────────────────
@@ -1021,6 +1088,12 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("admin-password").value = "";
     document.getElementById("admin-error").textContent = "";
     showScreen("screen-admin-login");
+  });
+
+  // ── Level-Up-Overlay ──
+  document.getElementById("btn-lu-close").addEventListener("click", () => {
+    document.getElementById("level-up-overlay").style.display = "none";
+    showNextLevelUp();
   });
 
   // ── Quiz ──

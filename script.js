@@ -190,12 +190,12 @@ function addLesson(name) {
   return e;
 }
 function deleteLesson(id) {
+  const affectedIds = new Set(loadVocab().filter(v => v.lessonId === id).map(v => v.id));
   saveLessons(loadLessons().filter(l => l.id !== id));
   const updated = loadVocab().map(v => v.lessonId === id ? { ...v, lessonId: null } : v);
   saveVocab(updated);
   fbDel("lessons", String(id));
-  updated.filter(v => v.lessonId === null && loadVocab().find(ov => ov.id === v.id))
-    .forEach(v => fbSet("vocab", String(v.id), v));
+  updated.filter(v => affectedIds.has(v.id)).forEach(v => fbSet("vocab", String(v.id), v));
 }
 function deleteVocabByLesson(id) {
   const toDelete = loadVocab().filter(v => v.lessonId === id);

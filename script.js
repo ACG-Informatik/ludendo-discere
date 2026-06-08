@@ -13,6 +13,77 @@ const STORAGE_LESSONS  = "ll_lessons";
 const STORAGE_LEVELS   = "ll_levels";
 
 // ──────────────────────────────────────────────
+// FIREBASE / FIRESTORE
+// ──────────────────────────────────────────────
+
+const FB_CONFIG = {
+  apiKey:            "AIzaSyA1C6DpD10o8j5gZ0mhystaw9PQHqk1Qgg",
+  authDomain:        "ludendo-discere.firebaseapp.com",
+  projectId:         "ludendo-discere",
+  storageBucket:     "ludendo-discere.firebasestorage.app",
+  messagingSenderId: "701767395131",
+  appId:             "1:701767395131:web:41a0486de132504188791e"
+};
+
+let _db = null;
+
+function initFirebase() {
+  try {
+    firebase.initializeApp(FB_CONFIG);
+    _db = firebase.firestore();
+  } catch(e) { console.warn("Firebase init:", e); }
+}
+
+// Generische Helfer (fire-and-forget, kein await nötig)
+function fbSet(col, docId, data) {
+  if (_db) _db.collection(col).doc(docId).set(data).catch(() => {});
+}
+function fbDel(col, docId) {
+  if (_db) _db.collection(col).doc(docId).delete().catch(() => {});
+}
+function fbAdd(col, data) {
+  if (_db) _db.collection(col).add(data).catch(() => {});
+}
+async function fbGetAll(col) {
+  if (!_db) return null;
+  try {
+    const snap = await _db.collection(col).get();
+    return snap.docs.map(d => d.data());
+  } catch { return null; }
+}
+
+// Schüler-Ergebnisse aus Firestore in localStorage einlesen (beim Start)
+async function fbSyncStudentData(studentName) {
+  if (!_db || !studentName) return;
+  try {
+    // Ergebnisse
+    const snap = await _db.collection("results")
+      .where("studentName", "==", studentName).get();
+    if (!snap.empty) {
+      const fbResults = snap.docs.map(d => d.data());
+      const local     = loadResults();
+      const existing  = new Set(local.map(r => r.answeredAt + "|" + r.vocabId));
+      const newOnes   = fbResults.filter(r => !existing.has(r.answeredAt + "|" + r.vocabId));
+      if (newOnes.length) saveResults([...local, ...newOnes]);
+    }
+    // Level
+    const docId  = studentName.replace(/[/.#$[\]]/g, "_");
+    const levDoc = await _db.collection("levels").doc(docId).get();
+    if (levDoc.exists) {
+      const d = levDoc.data();
+      const snaps = loadLevelSnapshots();
+      snaps[studentName] = { overall: d.overall || null, lessons: d.lessons || {} };
+      localStorage.setItem(STORAGE_LEVELS, JSON.stringify(snaps));
+    }
+  } catch(e) { console.warn("fbSyncStudentData:", e); }
+}
+
+// Alle Ergebnisse aus Firestore laden (für Admin-Statistiken)
+async function fbLoadAllResults() {
+  return (await fbGetAll("results")) ?? loadResults();
+}
+
+// ──────────────────────────────────────────────
 // DATENVERWALTUNG
 // ──────────────────────────────────────────────
 
@@ -27,7 +98,13 @@ function saveStudents(l){ localStorage.setItem(STORAGE_STUDENTS, JSON.stringify(
 function loadLessons()       { try { return JSON.parse(localStorage.getItem(STORAGE_LESSONS))  || []; } catch { return []; } }
 function saveLessons(l)      { localStorage.setItem(STORAGE_LESSONS,  JSON.stringify(l)); }
 function loadLevelSnapshots(){ try { return JSON.parse(localStorage.getItem(STORAGE_LEVELS))   || {}; } catch { return {}; } }
-function saveLevelSnapshots(d){ localStorage.setItem(STORAGE_LEVELS,  JSON.stringify(d)); }
+function saveLevelSnapshots(d){
+  localStorage.setItem(STORAGE_LEVELS, JSON.stringify(d));
+  Object.entries(d).forEach(([name, levels]) => {
+    const docId = name.replace(/[/.#$[\]]/g, "_");
+    fbSet("levels", docId, { studentName: name, ...levels });
+  });
+}
 
 // Eindeutige Ganzzahl-IDs (Float-IDs verlieren bei großen Timestamps Nachkommastellen)
 let _idSeq = 0;
@@ -59,32 +136,46 @@ function normalizeVocabIds() {
 function addVocab(latin, meanings, lessonId) {
   const clean = meanings.map(m => m.trim()).filter(m => m.length > 0).slice(0, 3);
   if (!latin.trim() || !clean.length) return null;
-  const list = loadVocab();
+  const list  = loadVocab();
   const entry = { id: nextId(), latin: latin.trim(), meanings: clean, lessonId: lessonId || null, createdAt: new Date().toISOString() };
   list.push(entry);
   saveVocab(list);
+  fbSet("vocab", String(entry.id), entry);
   return entry;
 }
-function deleteVocab(id) { saveVocab(loadVocab().filter(v => v.id !== id)); }
+function deleteVocab(id) {
+  saveVocab(loadVocab().filter(v => v.id !== id));
+  fbDel("vocab", String(id));
+}
 
 // ── Klassen / Schüler ──
 function addClassEntry(name) {
   const t = name.trim(); if (!t) return null;
   const list = loadClasses();
   const e = { id: nextId(), name: t, createdAt: new Date().toISOString() };
-  list.push(e); saveClasses(list); return e;
+  list.push(e); saveClasses(list);
+  fbSet("classes", String(e.id), e);
+  return e;
 }
 function deleteClassEntry(id) {
+  const toRemove = loadStudents().filter(s => s.classId === id);
   saveClasses(loadClasses().filter(c => c.id !== id));
   saveStudents(loadStudents().filter(s => s.classId !== id));
+  fbDel("classes", String(id));
+  toRemove.forEach(s => fbDel("students", String(s.id)));
 }
 function addStudentEntry(name, classId) {
   const t = name.trim(); if (!t) return null;
   const list = loadStudents();
   const e = { id: nextId(), name: t, classId, createdAt: new Date().toISOString() };
-  list.push(e); saveStudents(list); return e;
+  list.push(e); saveStudents(list);
+  fbSet("students", String(e.id), e);
+  return e;
 }
-function deleteStudentEntry(id) { saveStudents(loadStudents().filter(s => s.id !== id)); }
+function deleteStudentEntry(id) {
+  saveStudents(loadStudents().filter(s => s.id !== id));
+  fbDel("students", String(id));
+}
 function getStudentsInClass(cid) {
   return loadStudents().filter(s => s.classId === cid).sort((a, b) => a.name.localeCompare(b.name, "de"));
 }
@@ -94,21 +185,31 @@ function addLesson(name) {
   const t = name.trim(); if (!t) return null;
   const list = loadLessons();
   const e = { id: nextId(), name: t, createdAt: new Date().toISOString() };
-  list.push(e); saveLessons(list); return e;
+  list.push(e); saveLessons(list);
+  fbSet("lessons", String(e.id), e);
+  return e;
 }
 function deleteLesson(id) {
   saveLessons(loadLessons().filter(l => l.id !== id));
-  saveVocab(loadVocab().map(v => v.lessonId === id ? { ...v, lessonId: null } : v));
+  const updated = loadVocab().map(v => v.lessonId === id ? { ...v, lessonId: null } : v);
+  saveVocab(updated);
+  fbDel("lessons", String(id));
+  updated.filter(v => v.lessonId === null && loadVocab().find(ov => ov.id === v.id))
+    .forEach(v => fbSet("vocab", String(v.id), v));
 }
 function deleteVocabByLesson(id) {
+  const toDelete = loadVocab().filter(v => v.lessonId === id);
   saveVocab(loadVocab().filter(v => v.lessonId !== id));
+  toDelete.forEach(v => fbDel("vocab", String(v.id)));
 }
 
 // ── Ergebnisse ──
 function addResult(studentName, classId, lessonId, vocabId, latin, meanings, format, correct) {
+  const r = { id: nextId(), studentName, classId: classId||null, lessonId: lessonId||null, vocabId, latin, meanings, format, correct, answeredAt: new Date().toISOString() };
   const list = loadResults();
-  list.push({ id: nextId(), studentName, classId: classId||null, lessonId: lessonId||null, vocabId, latin, meanings, format, correct, answeredAt: new Date().toISOString() });
+  list.push(r);
   saveResults(list);
+  fbAdd("results", r);
 }
 
 // Startvokabeln
@@ -923,11 +1024,13 @@ function renderAdminResults() {
 // ADMIN – Statistiken
 // ──────────────────────────────────────────────
 
-function renderAdminStats() {
-  const results   = loadResults();
+async function renderAdminStats() {
+  const wrap = document.getElementById("stats-by-student-level");
+  wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⏳</div>Lade Daten…</div>`;
+
+  const results   = await fbLoadAllResults();
   const lessons   = loadLessons();
   const lessonMap = Object.fromEntries(lessons.map(l => [l.id, l.name]));
-  const wrap      = document.getElementById("stats-by-student-level");
 
   if (!results.length) {
     wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📊</div>Noch keine Ergebnisse vorhanden.</div>`;
@@ -1029,6 +1132,18 @@ function switchAdminTab(tab) {
 // ──────────────────────────────────────────────
 
 document.addEventListener("DOMContentLoaded", () => {
+  // Firebase initialisieren und Daten aus der Cloud laden
+  initFirebase();
+  (async () => {
+    const [fbVocab, fbLessons, fbClasses] = await Promise.all([
+      fbGetAll("vocab"), fbGetAll("lessons"), fbGetAll("classes")
+    ]);
+    if (fbVocab   && fbVocab.length)   { saveVocab(fbVocab);     normalizeVocabIds(); }
+    if (fbLessons && fbLessons.length)  saveLessons(fbLessons.sort((a,b)=>a.id-b.id));
+    if (fbClasses && fbClasses.length)  saveClasses(fbClasses.sort((a,b)=>a.id-b.id));
+    populateHomeScreen();
+  })();
+
   normalizeVocabIds();
   seedIfEmpty();
   populateHomeScreen();
@@ -1052,8 +1167,17 @@ document.addEventListener("DOMContentLoaded", () => {
     updateXPBar(name);
   }
 
-  document.getElementById("student-name").addEventListener("input", refreshProfileButton);
-  document.getElementById("student-select").addEventListener("change", refreshProfileButton);
+  document.getElementById("student-name").addEventListener("input", () => {
+    refreshProfileButton();
+    const name = document.getElementById("student-name").value.trim();
+    if (name.length >= 2) fbSyncStudentData(name);
+  });
+  document.getElementById("student-select").addEventListener("change", () => {
+    refreshProfileButton();
+    const sel = document.getElementById("student-select");
+    const name = sel.value ? (sel.options[sel.selectedIndex].dataset.name || "") : "";
+    if (name) fbSyncStudentData(name);
+  });
 
   document.getElementById("btn-start").addEventListener("click", () => {
     const classId  = Number(document.getElementById("class-select").value) || null;

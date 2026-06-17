@@ -1037,75 +1037,100 @@ async function renderAdminStats() {
     return;
   }
 
+  // XP direkt aus dem geladenen Ergebnis-Array berechnen (nicht localStorage)
+  function xpFromResults(arr) {
+    return arr.reduce((acc, r) => acc + (r.correct ? XP_CORRECT : XP_ATTEMPT), 0);
+  }
+  function xpBar(xp, lvl, lvls) {
+    const idx     = lvls.indexOf(lvl);
+    const nextLvl = lvls[idx + 1];
+    const pct     = nextLvl
+      ? Math.min(100, Math.round((xp - lvl.min) / (nextLvl.min - lvl.min) * 100))
+      : 100;
+    const label   = nextLvl ? `→ ${nextLvl.title} bei ${nextLvl.min} XP` : "Höchstes Level erreicht";
+    return `<div class="ssc-xp-wrap">
+      <div class="ssc-xp-track"><div class="ssc-xp-fill" style="width:${pct}%"></div></div>
+      <span class="ssc-xp-label">${xp} XP &nbsp;${label}</span>
+    </div>`;
+  }
+
   // Daten je Schüler + Lektion aggregieren
   const studentData = {};
   results.forEach(r => {
     if (!studentData[r.studentName])
-      studentData[r.studentName] = { classId: r.classId, byLesson: {}, total: 0, correct: 0 };
+      studentData[r.studentName] = { classId: r.classId, byLesson: {}, total: 0, correct: 0, results: [] };
     const sd = studentData[r.studentName];
     sd.total++; if (r.correct) sd.correct++;
+    sd.results.push(r);
     const key = r.lessonId ?? "__none__";
-    if (!sd.byLesson[key]) sd.byLesson[key] = { total: 0, correct: 0 };
+    if (!sd.byLesson[key]) sd.byLesson[key] = { total: 0, correct: 0, results: [] };
     sd.byLesson[key].total++; if (r.correct) sd.byLesson[key].correct++;
+    sd.byLesson[key].results.push(r);
   });
 
-  const classMap = Object.fromEntries(loadClasses().map(c => [c.id, c.name]));
+  const overallLvls = getXPLevels();
+  const classMap    = Object.fromEntries(loadClasses().map(c => [c.id, c.name]));
   let html = "";
 
   Object.keys(studentData).sort().forEach(name => {
-    const sd       = studentData[name];
-    const totalXP  = getStudentXP(name);
-    const overall  = getCurrentLevel(totalXP);
-    const pct      = sd.total ? Math.round(sd.correct / sd.total * 100) : 0;
-    const cls      = sd.classId && classMap[sd.classId] ? escapeHTML(classMap[sd.classId]) : "";
+    const sd      = studentData[name];
+    const totalXP = xpFromResults(sd.results);
+    const overall = getCurrentLevel(totalXP, overallLvls);
+    const pct     = sd.total ? Math.round(sd.correct / sd.total * 100) : 0;
+    const cls     = sd.classId && classMap[sd.classId] ? escapeHTML(classMap[sd.classId]) : "";
+    const isMagOverall = overall.title === "Magister";
 
-    html += `<div class="ssc card">
+    html += `<div class="ssc card${isMagOverall ? " ssc-magister-overall" : ""}">
       <div class="ssc-header">
-        <div class="ssc-badge">${overall.roman}</div>
+        <div class="ssc-badge${isMagOverall ? " ssc-badge--gold" : ""}">${overall.roman}</div>
         <div class="ssc-info">
           <span class="ssc-name">${escapeHTML(name)}</span>${cls ? ` <span class="ssc-class">${cls}</span>` : ""}
-          <span class="ssc-rank">${overall.title} &nbsp;·&nbsp; ${totalXP} XP gesamt</span>
+          <span class="ssc-rank"><strong>${overall.title}</strong> &nbsp;·&nbsp; Gesamtlevel</span>
           <span class="ssc-overall">${sd.correct} / ${sd.total} richtig &nbsp;(${pct} %)</span>
         </div>
-      </div>`;
+      </div>
+      ${xpBar(totalXP, overall, overallLvls)}`;
 
     // Zeilen je Lektion
     const lessonKeys = Object.keys(sd.byLesson)
       .filter(k => k !== "__none__")
-      .sort((a, b) => {
-        const ia = lessons.findIndex(l => l.id === Number(a));
-        const ib = lessons.findIndex(l => l.id === Number(b));
-        return ia - ib;
-      });
+      .sort((a, b) => lessons.findIndex(l => l.id === Number(a)) - lessons.findIndex(l => l.id === Number(b)));
 
     if (lessonKeys.length) {
       html += `<div class="ssc-table-wrap"><table>
         <thead><tr>
-          <th>Lektion</th><th>Rang</th><th>Titel</th><th>XP</th>
-          <th>Abgefragt</th><th>Richtig</th><th>Quote</th>
+          <th>Lektion</th><th>Rang</th><th>Titel</th><th>Fortschritt</th>
+          <th>Richtig</th><th>Quote</th>
         </tr></thead><tbody>`;
 
       lessonKeys.forEach(k => {
-        const ld      = sd.byLesson[k];
-        const lid     = Number(k);
-        const xp      = getStudentXPForLesson(name, lid);
-        const lvls    = getLessonXPLevels(lid);
-        const lv      = getCurrentLevel(xp, lvls);
-        const lName   = lessonMap[lid] ? escapeHTML(lessonMap[lid]) : `Lektion ${k}`;
-        const q       = ld.total ? Math.round(ld.correct / ld.total * 100) : 0;
-        const isMag   = lv.title === "Magister";
+        const ld    = sd.byLesson[k];
+        const lid   = Number(k);
+        const xp    = xpFromResults(ld.results);
+        const lvls  = getLessonXPLevels(lid);
+        const lv    = getCurrentLevel(xp, lvls);
+        const lName = lessonMap[lid] ? escapeHTML(lessonMap[lid]) : `Lektion ${k}`;
+        const q     = ld.total ? Math.round(ld.correct / ld.total * 100) : 0;
+        const isMag = lv.title === "Magister";
+        const lvlIdx  = lvls.indexOf(lv);
+        const nextLvl = lvls[lvlIdx + 1];
+        const barPct  = nextLvl
+          ? Math.min(100, Math.round((xp - lv.min) / (nextLvl.min - lv.min) * 100))
+          : 100;
         html += `<tr${isMag ? ' class="ssc-row-magister"' : ""}>
           <td>${lName}</td>
           <td><span class="ssc-rank-badge${isMag ? " ssc-rank-badge--gold" : ""}">${lv.roman}</span></td>
           <td><em>${lv.title}</em>${isMag ? " ✓" : ""}</td>
-          <td>${xp}</td>
-          <td>${ld.total}</td><td>${ld.correct}</td><td>${q} %</td>
+          <td class="ssc-bar-cell">
+            <div class="ssc-mini-track"><div class="ssc-mini-fill" style="width:${barPct}%"></div></div>
+            <span class="ssc-mini-label">${xp} XP</span>
+          </td>
+          <td>${ld.correct} / ${ld.total}</td><td>${q} %</td>
         </tr>`;
       });
       html += `</tbody></table></div>`;
     }
 
-    // Ergebnisse ohne zugewiesene Lektion
     if (sd.byLesson["__none__"]) {
       const ld = sd.byLesson["__none__"];
       const q  = ld.total ? Math.round(ld.correct / ld.total * 100) : 0;

@@ -1148,6 +1148,53 @@ tbody td { padding: .65rem .8rem; color: var(--text); vertical-align: middle; }
   padding: .3rem 0;
 }
 
+/* XP-Fortschrittsbalken in der Admin-Statistik */
+.ssc-xp-wrap {
+  padding: .4rem 0 .6rem;
+  display: flex;
+  flex-direction: column;
+  gap: .25rem;
+}
+.ssc-xp-track {
+  height: 7px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.ssc-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #c4a84a, #f0d472);
+  border-radius: 99px;
+  transition: width .5s ease;
+}
+.ssc-xp-label {
+  font-size: .78rem;
+  color: var(--text-muted);
+}
+
+/* Mini-Balken in der Lektions-Tabelle */
+.ssc-bar-cell { min-width: 120px; }
+.ssc-mini-track {
+  height: 5px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 2px;
+}
+.ssc-mini-fill {
+  height: 100%;
+  background: #c4a84a;
+  border-radius: 99px;
+}
+.ssc-mini-label { font-size: .75rem; color: var(--text-muted); }
+
+/* Gold-Badge für Gesamtlevel Magister */
+.ssc-badge--gold {
+  background: linear-gradient(135deg, #c4a84a, #f0d472) !important;
+  color: #1a2744 !important;
+}
+.ssc-magister-overall { border-color: #c4a84a; }
+
 /* ─── Select styled wie Input ─── */
 select.input {
   appearance: none;

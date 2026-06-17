@@ -775,6 +775,14 @@ function showResult() {
 // ADMIN – Vokabeln
 // ──────────────────────────────────────────────
 
+function updateNoLessonCount() {
+  const n = loadVocab().filter(v => !v.lessonId).length;
+  const el = document.getElementById("no-lesson-count");
+  if (el) el.textContent = n;
+  const btn = document.getElementById("btn-delete-no-lesson");
+  if (btn) btn.style.display = n > 0 ? "" : "none";
+}
+
 function renderAdminVocab() {
   const vocab   = loadVocab();
   const lessons = loadLessons();
@@ -812,6 +820,7 @@ function renderAdminVocab() {
   });
   html += `</tbody></table>`;
   wrap.innerHTML = html;
+  updateNoLessonCount();
 }
 
 function deleteVocabUI(id) {
@@ -1237,6 +1246,15 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("admin-password").value = "";
     document.getElementById("admin-error").textContent = "";
     showScreen("screen-admin-login");
+  });
+
+  // ── Vokabeln ohne Lektion löschen ──
+  document.getElementById("btn-delete-no-lesson").addEventListener("click", () => {
+    const toDelete = loadVocab().filter(v => !v.lessonId);
+    if (!toDelete.length) return;
+    if (!confirm(`${toDelete.length} Vokabel${toDelete.length !== 1 ? "n" : ""} ohne Lektion wirklich löschen?`)) return;
+    toDelete.forEach(v => { deleteVocab(v.id); });
+    renderAdminVocab();
   });
 
   // ── Level-Up-Overlay ──

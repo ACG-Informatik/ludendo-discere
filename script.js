@@ -82,6 +82,13 @@ async function fbSyncStudentData(studentName) {
 async function fbLoadAllResults() {
   return (await fbGetAll("results")) ?? loadResults();
 }
+// Alle Klassen/Schüler aus Firestore laden (für Admin-Klassenverwaltung)
+async function fbLoadAllClasses() {
+  return (await fbGetAll("classes")) ?? loadClasses();
+}
+async function fbLoadAllStudents() {
+  return (await fbGetAll("students")) ?? loadStudents();
+}
 
 // ──────────────────────────────────────────────
 // DATENVERWALTUNG
@@ -888,9 +895,11 @@ function deleteLessonUI(id) {
 // ADMIN – Klassen & Schüler
 // ──────────────────────────────────────────────
 
-function renderAdminClasses() {
-  const classes  = loadClasses();
-  const students = loadStudents();
+async function renderAdminClasses() {
+  const classes  = await fbLoadAllClasses();
+  const students = await fbLoadAllStudents();
+  saveClasses(classes);
+  saveStudents(students);
   document.getElementById("class-count").textContent = classes.length;
   const wrap = document.getElementById("class-list");
   if (!classes.length) {
@@ -1165,12 +1174,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // Firebase initialisieren und Daten aus der Cloud laden
   initFirebase();
   (async () => {
-    const [fbVocab, fbLessons, fbClasses] = await Promise.all([
-      fbGetAll("vocab"), fbGetAll("lessons"), fbGetAll("classes")
+    const [fbVocab, fbLessons, fbClasses, fbStudents] = await Promise.all([
+      fbGetAll("vocab"), fbGetAll("lessons"), fbGetAll("classes"), fbGetAll("students")
     ]);
-    if (fbVocab   && fbVocab.length)   { saveVocab(fbVocab);     normalizeVocabIds(); }
-    if (fbLessons && fbLessons.length)  saveLessons(fbLessons.sort((a,b)=>a.id-b.id));
-    if (fbClasses && fbClasses.length)  saveClasses(fbClasses.sort((a,b)=>a.id-b.id));
+    if (fbVocab    && fbVocab.length)    { saveVocab(fbVocab);     normalizeVocabIds(); }
+    if (fbLessons  && fbLessons.length)    saveLessons(fbLessons.sort((a,b)=>a.id-b.id));
+    if (fbClasses  && fbClasses.length)    saveClasses(fbClasses.sort((a,b)=>a.id-b.id));
+    if (fbStudents && fbStudents.length)   saveStudents(fbStudents);
     populateHomeScreen();
   })();
 

@@ -1037,44 +1037,41 @@ async function renderAdminStats() {
   const wrap = document.getElementById("stats-by-student-level");
   wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">⏳</div>Lade Daten…</div>`;
 
-  const results   = await fbLoadAllResults();
-  const lessons   = loadLessons();
-  const lessonMap = Object.fromEntries(lessons.map(l => [l.id, l.name]));
+  const allResults = await fbLoadAllResults();
+  const lessons    = loadLessons();
+  const lessonMap  = Object.fromEntries(lessons.map(l => [l.id, l.name]));
 
-  if (!results.length) {
+  if (!allResults.length) {
     wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📊</div>Noch keine Ergebnisse vorhanden.</div>`;
     return;
   }
 
-  // XP direkt aus dem geladenen Ergebnis-Array berechnen (nicht localStorage)
-  function xpFromResults(arr) {
-    return arr.reduce((acc, r) => acc + (r.correct ? XP_CORRECT : XP_ATTEMPT), 0);
+  // XP robust berechnen: klappt für boolean, integer (0/1) und string ("true"/"false")
+  function isCorrectResult(r) { return r.correct === true || r.correct === 1 || r.correct === "true"; }
+  function calcXP(arr) {
+    return arr.reduce((acc, r) => acc + (isCorrectResult(r) ? XP_CORRECT : XP_ATTEMPT), 0);
   }
-  function xpBar(xp, lvl, lvls) {
-    const idx     = lvls.indexOf(lvl);
-    const nextLvl = lvls[idx + 1];
-    const pct     = nextLvl
-      ? Math.min(100, Math.round((xp - lvl.min) / (nextLvl.min - lvl.min) * 100))
-      : 100;
-    const label   = nextLvl ? `→ ${nextLvl.title} bei ${nextLvl.min} XP` : "Höchstes Level erreicht";
-    return `<div class="ssc-xp-wrap">
-      <div class="ssc-xp-track"><div class="ssc-xp-fill" style="width:${pct}%"></div></div>
-      <span class="ssc-xp-label">${xp} XP &nbsp;${label}</span>
-    </div>`;
+  function makeBar(xp, lvls) {
+    const lv   = getCurrentLevel(xp, lvls);
+    const idx  = lvls.findIndex(l => l.title === lv.title);
+    const next = lvls[idx + 1];
+    const pct  = next ? Math.min(100, Math.round((xp - lv.min) / (next.min - lv.min) * 100)) : 100;
+    const lbl  = next ? `→ ${next.title} bei ${next.min} XP` : "Höchstes Level erreicht";
+    return { lv, pct, lbl };
   }
 
   // Daten je Schüler + Lektion aggregieren
   const studentData = {};
-  results.forEach(r => {
-    if (!studentData[r.studentName])
-      studentData[r.studentName] = { classId: r.classId, byLesson: {}, total: 0, correct: 0, results: [] };
-    const sd = studentData[r.studentName];
-    sd.total++; if (r.correct) sd.correct++;
-    sd.results.push(r);
-    const key = r.lessonId ?? "__none__";
-    if (!sd.byLesson[key]) sd.byLesson[key] = { total: 0, correct: 0, results: [] };
-    sd.byLesson[key].total++; if (r.correct) sd.byLesson[key].correct++;
-    sd.byLesson[key].results.push(r);
+  allResults.forEach(r => {
+    const name = r.studentName;
+    if (!studentData[name]) studentData[name] = { classId: r.classId, byLesson: {}, total: 0, correct: 0 };
+    const sd = studentData[name];
+    sd.total++;
+    if (isCorrectResult(r)) sd.correct++;
+    const key = (r.lessonId != null) ? String(r.lessonId) : "__none__";
+    if (!sd.byLesson[key]) sd.byLesson[key] = { total: 0, correct: 0 };
+    sd.byLesson[key].total++;
+    if (isCorrectResult(r)) sd.byLesson[key].correct++;
   });
 
   const overallLvls = getXPLevels();
@@ -1083,22 +1080,26 @@ async function renderAdminStats() {
 
   Object.keys(studentData).sort().forEach(name => {
     const sd      = studentData[name];
-    const totalXP = xpFromResults(sd.results);
-    const overall = getCurrentLevel(totalXP, overallLvls);
-    const pct     = sd.total ? Math.round(sd.correct / sd.total * 100) : 0;
-    const cls     = sd.classId && classMap[sd.classId] ? escapeHTML(classMap[sd.classId]) : "";
-    const isMagOverall = overall.title === "Magister";
+    // XP aus gefiltertem allResults-Array — sicher, keine localStorage-Abhängigkeit
+    const totalXP    = calcXP(allResults.filter(r => r.studentName === name));
+    const { lv: overall, pct: barPct, lbl: barLbl } = makeBar(totalXP, overallLvls);
+    const pct        = sd.total ? Math.round(sd.correct / sd.total * 100) : 0;
+    const cls        = sd.classId && classMap[sd.classId] ? escapeHTML(classMap[sd.classId]) : "";
+    const isMagTotal = overall.title === "Magister";
 
-    html += `<div class="ssc card${isMagOverall ? " ssc-magister-overall" : ""}">
+    html += `<div class="ssc card${isMagTotal ? " ssc-magister-overall" : ""}">
       <div class="ssc-header">
-        <div class="ssc-badge${isMagOverall ? " ssc-badge--gold" : ""}">${overall.roman}</div>
+        <div class="ssc-badge${isMagTotal ? " ssc-badge--gold" : ""}">${overall.roman}</div>
         <div class="ssc-info">
           <span class="ssc-name">${escapeHTML(name)}</span>${cls ? ` <span class="ssc-class">${cls}</span>` : ""}
           <span class="ssc-rank"><strong>${overall.title}</strong> &nbsp;·&nbsp; Gesamtlevel</span>
           <span class="ssc-overall">${sd.correct} / ${sd.total} richtig &nbsp;(${pct} %)</span>
         </div>
       </div>
-      ${xpBar(totalXP, overall, overallLvls)}`;
+      <div class="ssc-xp-wrap">
+        <div class="ssc-xp-track"><div class="ssc-xp-fill" style="width:${barPct}%"></div></div>
+        <span class="ssc-xp-label">${totalXP} XP &nbsp;${barLbl}</span>
+      </div>`;
 
     // Zeilen je Lektion
     const lessonKeys = Object.keys(sd.byLesson)
@@ -1115,23 +1116,18 @@ async function renderAdminStats() {
       lessonKeys.forEach(k => {
         const ld    = sd.byLesson[k];
         const lid   = Number(k);
-        const xp    = xpFromResults(ld.results);
+        const xp    = calcXP(allResults.filter(r => r.studentName === name && Number(r.lessonId) === lid));
         const lvls  = getLessonXPLevels(lid);
-        const lv    = getCurrentLevel(xp, lvls);
+        const { lv, pct: lPct } = makeBar(xp, lvls);
         const lName = lessonMap[lid] ? escapeHTML(lessonMap[lid]) : `Lektion ${k}`;
         const q     = ld.total ? Math.round(ld.correct / ld.total * 100) : 0;
         const isMag = lv.title === "Magister";
-        const lvlIdx  = lvls.indexOf(lv);
-        const nextLvl = lvls[lvlIdx + 1];
-        const barPct  = nextLvl
-          ? Math.min(100, Math.round((xp - lv.min) / (nextLvl.min - lv.min) * 100))
-          : 100;
         html += `<tr${isMag ? ' class="ssc-row-magister"' : ""}>
           <td>${lName}</td>
           <td><span class="ssc-rank-badge${isMag ? " ssc-rank-badge--gold" : ""}">${lv.roman}</span></td>
           <td><em>${lv.title}</em>${isMag ? " ✓" : ""}</td>
           <td class="ssc-bar-cell">
-            <div class="ssc-mini-track"><div class="ssc-mini-fill" style="width:${barPct}%"></div></div>
+            <div class="ssc-mini-track"><div class="ssc-mini-fill" style="width:${lPct}%"></div></div>
             <span class="ssc-mini-label">${xp} XP</span>
           </td>
           <td>${ld.correct} / ${ld.total}</td><td>${q} %</td>

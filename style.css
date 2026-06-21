@@ -1082,6 +1082,7 @@ tbody td { padding: .65rem .8rem; color: var(--text); vertical-align: middle; }
 
 .ssc-info {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: .15rem;
 }

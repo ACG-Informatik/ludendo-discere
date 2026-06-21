@@ -90,6 +90,28 @@ async function fbLoadAllStudents() {
   return (await fbGetAll("students")) ?? loadStudents();
 }
 
+// Schüler komplett entfernen: Ergebnisse, Level-Snapshot und Klassenlisten-Eintrag
+async function deleteStudentEverywhere(name) {
+  saveResults(loadResults().filter(r => r.studentName !== name));
+  if (_db) {
+    try {
+      const snap = await _db.collection("results").where("studentName", "==", name).get();
+      const batch = _db.batch();
+      snap.docs.forEach(d => batch.delete(d.ref));
+      await batch.commit();
+    } catch (e) { console.warn("deleteStudentEverywhere results:", e); }
+  }
+
+  const snaps = loadLevelSnapshots();
+  delete snaps[name];
+  localStorage.setItem(STORAGE_LEVELS, JSON.stringify(snaps));
+  fbDel("levels", name.replace(/[/.#$[\]]/g, "_"));
+
+  const matching = loadStudents().filter(s => s.name === name);
+  saveStudents(loadStudents().filter(s => s.name !== name));
+  matching.forEach(s => fbDel("students", String(s.id)));
+}
+
 // ──────────────────────────────────────────────
 // DATENVERWALTUNG
 // ──────────────────────────────────────────────
@@ -956,6 +978,11 @@ function deleteClassUI(id) {
   if (!confirm(n ? `Klasse „${c?.name}" und ${n} Schüler löschen?` : `Klasse „${c?.name}" löschen?`)) return;
   deleteClassEntry(id); renderAdminClasses(); populateHomeScreen();
 }
+async function deleteStudentStatsUI(name) {
+  if (!confirm(`Alle Daten von „${name}" unwiderruflich löschen?\n\nErgebnisse, Level und der Eintrag in der Klassenliste werden entfernt.`)) return;
+  await deleteStudentEverywhere(name);
+  renderAdminStats();
+}
 function deleteStudentUI(sid, cid) {
   const s = loadStudents().find(x => x.id===sid);
   if (!confirm(`Schüler „${s?.name}" entfernen?`)) return;
@@ -1104,6 +1131,7 @@ async function renderAdminStats() {
           <span class="ssc-rank"><strong>${overall.title}</strong> &nbsp;·&nbsp; Gesamtlevel</span>
           <span class="ssc-overall">${sd.correct} / ${sd.total} richtig &nbsp;(${pct} %)</span>
         </div>
+        <button class="btn-icon" title="Schüler löschen" data-name="${escapeHTML(name)}" onclick="deleteStudentStatsUI(this.dataset.name)">&#128465;</button>
       </div>
       <div class="ssc-xp-wrap">
         <div class="ssc-xp-track"><div class="ssc-xp-fill" style="width:${barPct}%"></div></div>

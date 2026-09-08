@@ -971,6 +971,56 @@ tbody td { padding: .65rem .8rem; color: var(--text); vertical-align: middle; }
   padding: 0 .2rem;
 }
 
+/* ─── Rangliste ─── */
+.lb-card { padding: 1.6rem 1.4rem; }
+.lb-title {
+  display: flex;
+  align-items: baseline;
+  gap: .3rem;
+  margin-bottom: 1.2rem;
+}
+#lb-scope {
+  text-transform: none;
+  letter-spacing: normal;
+  font-family: 'Lora', serif;
+  font-style: italic;
+  color: var(--text-muted);
+}
+.lb-row {
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  padding: .75rem .5rem;
+  border-bottom: 1px solid var(--border);
+}
+.lb-row:last-child { border-bottom: none; }
+.lb-row-first { background: #fdf6e8; border-radius: 8px; }
+.lb-rank {
+  font-size: 1.2rem;
+  width: 1.8rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+.lb-name {
+  flex: 1;
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  color: var(--text);
+}
+.lb-level {
+  font-family: 'Lora', serif;
+  font-style: italic;
+  font-size: .85rem;
+  color: var(--accent);
+}
+.lb-xp {
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  min-width: 4.5rem;
+  text-align: right;
+}
+
 /* Lektion-Karte im Profil */
 .plc {
   background: var(--bg-card);

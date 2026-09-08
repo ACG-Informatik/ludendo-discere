@@ -193,6 +193,16 @@ function deleteClassEntry(id) {
   fbDel("classes", String(id));
   toRemove.forEach(s => fbDel("students", String(s.id)));
 }
+function renameClassEntry(id, newName) {
+  const t = (newName || "").trim(); if (!t) return false;
+  const list = loadClasses();
+  const cls = list.find(c => c.id === id);
+  if (!cls) return false;
+  cls.name = t;
+  saveClasses(list);
+  fbSet("classes", String(id), cls);
+  return true;
+}
 function addStudentEntry(name, classId) {
   const t = name.trim(); if (!t) return null;
   const list = loadStudents();
@@ -274,6 +284,7 @@ function seedIfEmpty() {
 
 const XP_CORRECT = 10;
 const XP_ATTEMPT = 1;
+const LEADERBOARD_SIZE = 5; // Anzahl Plätze auf der Schüler-Rangliste (z. B. auf 3 ändern)
 
 // Gesamt-Level: feste Schwellen, unabhängig von Vokabelanzahl.
 // Bei ~3 Übungen/Woche à 15 Vokabeln: Level VI nach ~1 Monat, Level XII nach >2 Schuljahren.
@@ -393,6 +404,52 @@ function updateXPBar(name) {
   document.getElementById("xp-points").textContent = xp + " XP";
   document.getElementById("xp-level").textContent  = level.roman;
   document.getElementById("xp-title").textContent  = level.title;
+}
+
+// Rangliste für Schüler: Top-Platzierungen nach Gesamt-XP (über alle Lektionen),
+// optional gefiltert auf die aktuell im Startbildschirm gewählte Klasse.
+function isCorrectResult(r) { return r.correct === true || r.correct === 1 || r.correct === "true"; }
+
+async function renderLeaderboard() {
+  const classSelEl = document.getElementById("class-select");
+  const classId    = classSelEl ? (Number(classSelEl.value) || null) : null;
+  const classes    = loadClasses();
+  const scopeName  = classId ? (classes.find(c => c.id === classId)?.name || "") : "";
+  const scopeEl    = document.getElementById("lb-scope");
+  if (scopeEl) scopeEl.textContent = classId && scopeName ? ` · ${scopeName}` : " · alle Klassen";
+
+  const allResults = await fbLoadAllResults();
+  const filtered   = classId ? allResults.filter(r => Number(r.classId) === classId) : allResults;
+
+  const totals = {};
+  filtered.forEach(r => {
+    if (!r.studentName) return;
+    totals[r.studentName] = (totals[r.studentName] || 0) + (isCorrectResult(r) ? XP_CORRECT : XP_ATTEMPT);
+  });
+
+  const ranked = Object.entries(totals)
+    .map(([name, xp]) => ({ name, xp }))
+    .sort((a, b) => b.xp - a.xp)
+    .slice(0, LEADERBOARD_SIZE);
+
+  const wrap = document.getElementById("leaderboard-list");
+  if (!wrap) return;
+  if (!ranked.length) {
+    wrap.innerHTML = `<div class="empty-state"><div class="empty-state-icon">&#127942;</div>Noch keine Ergebnisse vorhanden.</div>`;
+    return;
+  }
+
+  const medals = ["&#129351;", "&#129352;", "&#129353;"];
+  wrap.innerHTML = ranked.map((r, i) => {
+    const level = getCurrentLevel(r.xp);
+    return `
+    <div class="lb-row${i === 0 ? " lb-row-first" : ""}">
+      <span class="lb-rank">${medals[i] || (i + 1) + "."}</span>
+      <span class="lb-name">${escapeHTML(r.name)}</span>
+      <span class="lb-level">${level.title}</span>
+      <span class="lb-xp">${r.xp} XP</span>
+    </div>`;
+  }).join("");
 }
 
 // ──────────────────────────────────────────────
@@ -937,6 +994,7 @@ async function renderAdminClasses() {
       <td>${count}</td>
       <td>
         <button class="btn btn-ghost btn-sm" onclick="toggleClassRow(${c.id})">Schüler ▾</button>
+        <button class="btn-icon" title="Umbenennen" onclick="renameClassUI(${c.id})">&#9998;</button>
         <button class="btn-icon" title="Löschen" onclick="deleteClassUI(${c.id})">&#128465;</button>
       </td>
     </tr>
@@ -977,6 +1035,13 @@ function deleteClassUI(id) {
   const n = getStudentsInClass(id).length;
   if (!confirm(n ? `Klasse „${c?.name}" und ${n} Schüler löschen?` : `Klasse „${c?.name}" löschen?`)) return;
   deleteClassEntry(id); renderAdminClasses(); populateHomeScreen();
+}
+function renameClassUI(id) {
+  const c = loadClasses().find(x => x.id===id);
+  const name = prompt("Neuer Klassenname:", c?.name || "");
+  if (name === null) return;
+  if (!renameClassEntry(id, name)) { alert("Bitte einen gültigen Namen eingeben."); return; }
+  renderAdminClasses(); populateHomeScreen();
 }
 async function deleteStudentStatsUI(name) {
   if (!confirm(`Alle Daten von „${name}" unwiderruflich löschen?\n\nErgebnisse, Level und der Eintrag in der Klassenliste werden entfernt.`)) return;
@@ -1274,6 +1339,12 @@ document.addEventListener("DOMContentLoaded", () => {
     showScreen("screen-profile");
   });
   document.getElementById("btn-profile-back").addEventListener("click", () => showScreen("screen-home"));
+
+  document.getElementById("btn-leaderboard").addEventListener("click", async () => {
+    await renderLeaderboard();
+    showScreen("screen-leaderboard");
+  });
+  document.getElementById("btn-leaderboard-back").addEventListener("click", () => showScreen("screen-home"));
 
   document.getElementById("btn-goto-admin").addEventListener("click", () => {
     document.getElementById("admin-username").value = "";

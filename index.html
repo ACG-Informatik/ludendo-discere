@@ -50,6 +50,7 @@
         </div>
         <button class="btn btn-home-primary" id="btn-start">Übung beginnen</button>
         <button class="btn btn-home-ghost" id="btn-profile" style="display:none">Mein Profil ansehen</button>
+        <button class="btn btn-home-ghost" id="btn-leaderboard">Rangliste</button>
         <button class="btn btn-home-ghost" id="btn-goto-admin">Magister-Bereich</button>
       </div>
 
@@ -349,6 +350,18 @@
 
       <h3 class="profile-section-title">Fortschritt je Lektion</h3>
       <div id="profile-lessons"></div>
+    </div>
+  </div>
+
+  <!-- RANGLISTE -->
+  <div id="screen-leaderboard" class="screen">
+    <div class="profile-wrap">
+      <button class="btn-back" id="btn-leaderboard-back">&#8592; Zurück</button>
+
+      <div class="card lb-card">
+        <h3 class="profile-section-title lb-title">Rangliste<span id="lb-scope"></span></h3>
+        <div id="leaderboard-list"></div>
+      </div>
     </div>
   </div>
 

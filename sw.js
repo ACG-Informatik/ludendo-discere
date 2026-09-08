@@ -1,4 +1,4 @@
-const CACHE = "ludendo-v5";
+const CACHE = "ludendo-v6";
 const ASSETS = [
   "./",
   "./index.html",
